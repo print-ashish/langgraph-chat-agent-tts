@@ -1,0 +1,10 @@
+.venv
+.env
+welcome.mp3
+welcome.wav
+speech.wav
+checkpoints.sqlite
+checkpoints.sqlite-shm
+checkpoints.sqlite-wal
+agent_serve.py
+
