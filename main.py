@@ -1,4 +1,3 @@
-
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -8,7 +7,7 @@ import uuid
 from contextlib import asynccontextmanager
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import START, MessagesState, StateGraph
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
 from dotenv import load_dotenv
 import os
@@ -16,7 +15,11 @@ import sqlite3
 from langgraph.checkpoint.sqlite import SqliteSaver
 from tts import text_to_wav 
 import io
-
+import base64
+from fastapi.responses import JSONResponse
+from tts_python import text_to_wav_gtts
+from info import personal_info
+from tts import text_to_wav
 
 class GeminiLangGraphApp:
     def __init__(self):
@@ -29,8 +32,6 @@ class GeminiLangGraphApp:
 
     def _set_api_key(self):
         if "GOOGLE_API_KEY" not in os.environ:
-            # For production, you should set this as an environment variable
-            # os.environ["GOOGLE_API_KEY"] = getpass.getpass("Enter your Google AI API key: ")
             raise ValueError("GOOGLE_API_KEY environment variable must be set")
 
     def _create_model(self):
@@ -56,14 +57,13 @@ class GeminiLangGraphApp:
 
     def ask(self, query: str, thread_id: str) -> str:
         config = {"configurable": {"thread_id": thread_id}}
-        input_messages = [HumanMessage(query)]
+        system_prompt = personal_info
+        input_messages = [SystemMessage(content=system_prompt), HumanMessage(query)]
         output = self.app.invoke({"messages": input_messages}, config)
         return output["messages"][-1].content
 
-
 # Global variable to store the chat app instance
 chat_app = None
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -83,7 +83,6 @@ async def lifespan(app: FastAPI):
         chat_app.conn.close()
         print("Database connection closed")
 
-
 # Initialize FastAPI app
 app = FastAPI(
     title="Gemini LangGraph Chat API",
@@ -101,7 +100,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
 # Pydantic models for request/response
 class ChatRequest(BaseModel):
     query: str
@@ -114,7 +112,6 @@ class ChatResponse(BaseModel):
 class HealthResponse(BaseModel):
     status: str
     message: str
-
 
 # Routes
 @app.get("/", response_model=dict)
@@ -129,7 +126,6 @@ async def root():
         }
     }
 
-
 @app.get("/health", response_model=HealthResponse)
 async def health_check():
     global chat_app
@@ -141,33 +137,6 @@ async def health_check():
         message="Gemini LangGraph Chat API is running"
     )
 
-
-# @app.post("/chat", response_model=ChatResponse)
-# async def chat(request: ChatRequest):
-#     global chat_app
-    
-#     if chat_app is None:
-#         raise HTTPException(status_code=503, detail="Chat app not initialized")
-    
-#     try:
-#         # Generate a thread_id if not provided
-#         thread_id = request.thread_id or str(uuid.uuid4())
-        
-#         # Get response from the chat app
-#         response = chat_app.ask(request.query, thread_id)
-#         text_to_wav(response)
-        
-#         return ChatResponse(
-#             response=response,
-#             thread_id=thread_id
-#         )
-    
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=f"Error processing chat request: {str(e)}")
-import base64
-from fastapi.responses import JSONResponse
-
-from tts_python import text_to_wav_gtts
 @app.post("/chat")
 async def chat(request: ChatRequest):
     global chat_app
@@ -180,14 +149,14 @@ async def chat(request: ChatRequest):
         response_text = chat_app.ask(request.query, thread_id)
         print("response text from model == ", response_text)
 
-        # wav_path = text_to_wav(response_text)
-        wav_path = text_to_wav_gtts(response_text)
+        # wav_path = text_to_wav_gtts(response_text)
 
+        save_to_tts = text_to_wav(response_text)
+        wav_path = "speech.wav"
         with open(wav_path, "rb") as f:
             audio_bytes = f.read()
         print("converted to audio file")
         
-
         audio_b64 = base64.b64encode(audio_bytes).decode()
 
         return JSONResponse({
@@ -198,43 +167,6 @@ async def chat(request: ChatRequest):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
-
-
-@app.get("/threads/{thread_id}/history")
-async def get_thread_history(thread_id: str):
-    """Get conversation history for a specific thread"""
-    global chat_app
-    
-    if chat_app is None:
-        raise HTTPException(status_code=503, detail="Chat app not initialized")
-    
-    try:
-        # This is a basic implementation - you might want to enhance this
-        # to return the actual conversation history from the checkpointer
-        return {
-            "thread_id": thread_id,
-            "message": "History endpoint - implementation depends on your specific needs"
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error retrieving history: {str(e)}")
-
-
-# Additional utility endpoints
-@app.delete("/threads/{thread_id}")
-async def delete_thread(thread_id: str):
-    """Delete a conversation thread"""
-    global chat_app
-    
-    if chat_app is None:
-        raise HTTPException(status_code=503, detail="Chat app not initialized")
-    
-    try:
-        # Implementation would depend on how you want to handle thread deletion
-        # This might involve clearing the checkpointer state for this thread
-        return {"message": f"Thread {thread_id} deletion requested"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error deleting thread: {str(e)}")
-
 
 if __name__ == "__main__":
     uvicorn.run(

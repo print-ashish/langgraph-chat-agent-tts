@@ -1,30 +1,4 @@
-# import os
-# from dotenv import load_dotenv
 
-
-# load_dotenv()
-# from groq import Groq
-
-# client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
-
-
-
-# speech_file_path = "speech.wav" 
-# model = "playai-tts"
-# voice = "Arista-PlayAI"
-# text = "kya haal hai Amit "
-# response_format = "wav"
-
-# response = client.audio.speech.create(
-#     model=model,
-#     voice=voice,
-#     input=text,
-#     response_format=response_format
-# )
-
-# print(type(response))
-# print("raw response === ", response)
-# response.write_to_file(speech_file_path)
 
 
 import os
@@ -33,7 +7,7 @@ from groq import Groq
 
 load_dotenv()
 
-def text_to_wav(text, output_path="speech.wav", model="playai-tts", voice="Arista-PlayAI"):
+def text_to_wav(text, output_path="speech.wav", model="playai-tts", voice="Cheyenne-PlayAI"):
     """
     Converts input text to speech and saves it as a WAV file.
 
@@ -63,7 +37,7 @@ def text_to_wav(text, output_path="speech.wav", model="playai-tts", voice="Arist
         print("error occured ", e)
         return None
 
-# # Example usage
+# # # Example usage
 # if __name__ == "__main__":
-#     file_path = text_to_wav("kya haal hai Amit", "speech.wav")
+#     file_path = text_to_wav("Hi how are you Ashish", "speech.wav")
 #     print(f"Speech saved at: {file_path}")

@@ -7,4 +7,5 @@ checkpoints.sqlite
 checkpoints.sqlite-shm
 checkpoints.sqlite-wal
 agent_serve.py
+ui.py
 
